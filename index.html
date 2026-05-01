@@ -810,18 +810,18 @@
     btn.textContent = '送信中…';
 
     try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add', content, amount, cat, tate: selectedTate, date, month })
-      });
-      closeModal();
-      showToast('追加しました ✓');
-      // 少し待ってからリロード（no-corsなので書き込み完了を待つ）
-      setTimeout(loadData, 1200);
+      const params = new URLSearchParams({ action: 'add', content, amount, cat, tate: selectedTate, date, month });
+      const res = await fetch(`${GAS_URL}?${params}`);
+      const result = await res.json();
+      if (result.success || result.id) {
+        closeModal();
+        showToast('追加しました ✓');
+        await loadData();
+      } else {
+        showToast('エラーが発生しました');
+      }
     } catch (e) {
-      showToast('エラーが発生しました');
+      showToast('エラーが発生しました: ' + e.message);
     } finally {
       btn.disabled = false;
       btn.textContent = '追加する';
@@ -844,16 +844,17 @@
     if (!deleteTargetId) return;
     closeConfirm();
     try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', id: deleteTargetId })
-      });
-      showToast('削除しました');
-      setTimeout(loadData, 1200);
+      const params = new URLSearchParams({ action: 'delete', id: deleteTargetId });
+      const res = await fetch(`${GAS_URL}?${params}`);
+      const result = await res.json();
+      if (result.success) {
+        showToast('削除しました');
+        await loadData();
+      } else {
+        showToast('削除に失敗しました');
+      }
     } catch (e) {
-      showToast('削除に失敗しました');
+      showToast('削除に失敗しました: ' + e.message);
     }
   });
 
