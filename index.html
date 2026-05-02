@@ -818,10 +818,12 @@
     btn.textContent = '送信中…';
 
     try {
-      const params = new URLSearchParams({ action: 'add', content, amount, cat, tate: selectedTate, date, month });
-      const res = await fetch(`${GAS_URL}?${params}`);
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'add', content, amount, cat, tate: selectedTate, date, month })
+      });
       const result = await res.json();
-      if (result.success || result.id) {
+      if (result.ok) {
         closeModal();
         showToast('追加しました ✓');
         await loadData();
@@ -852,10 +854,12 @@
     if (!deleteTargetId) return;
     closeConfirm();
     try {
-      const params = new URLSearchParams({ action: 'delete', id: deleteTargetId });
-      const res = await fetch(`${GAS_URL}?${params}`);
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', id: deleteTargetId })
+      });
       const result = await res.json();
-      if (result.success) {
+      if (result.ok) {
         showToast('削除しました');
         await loadData();
       } else {
