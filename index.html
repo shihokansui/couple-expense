@@ -805,7 +805,8 @@
     const content = document.getElementById('inputContent').value.trim();
     const amount = Number(document.getElementById('inputAmount').value);
     const cat = document.getElementById('inputCat').value;
-    const date = document.getElementById('inputDate').value;
+    const rawDate = document.getElementById('inputDate').value;
+    const date = rawDate.replace(/\//g, '-');
 
     if (!content) { showToast('内容を入力してください'); return; }
     if (!amount || amount <= 0) { showToast('金額を入力してください'); return; }
