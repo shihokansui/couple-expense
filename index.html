@@ -673,8 +673,16 @@
     try {
       const res = await fetch(GAS_URL);
       const rows = await res.json();
-      // ヘッダー行や不正なデータを除外
-      allData = rows.filter(r => r.id && !isNaN(Number(r.amount)));
+      // ヘッダー行や不正なデータを除外 + 月フォーマット正規化
+      allData = rows.filter(r => r.id && !isNaN(Number(r.amount))).map(r => {
+        // month が "YYYY-MM" 形式でない場合 (例: "Fri May") → date から JST で算出
+        if (!/^\d{4}-\d{2}$/.test(String(r.month))) {
+          const d = new Date(r.date);
+          const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          r.month = jst.toISOString().substring(0, 7);
+        }
+        return r;
+      });
       renderMonth();
     } catch (e) {
       document.getElementById('expenseList').innerHTML =
