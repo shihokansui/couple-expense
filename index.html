@@ -748,30 +748,42 @@
     const expenses = items.filter(r => !isSettlement(r));
     const settlements = items.filter(r => isSettlement(r));
 
-    const kareTotal = expenses.filter(r => r.tate === 'kare').reduce((s, r) => s + Number(r.amount), 0);
-    const watashiTotal = expenses.filter(r => r.tate === 'watashi').reduce((s, r) => s + Number(r.amount), 0);
-    document.getElementById('kareTotal').textContent = '¥' + kareTotal.toLocaleString();
-    document.getElementById('watashiTotal').textContent = '¥' + watashiTotal.toLocaleString();
+    // 合計支払額（精算除外）
+    const kareExp = expenses.filter(r => r.tate === 'kare').reduce((s, r) => s + Number(r.amount), 0);
+    const watashiExp = expenses.filter(r => r.tate === 'watashi').reduce((s, r) => s + Number(r.amount), 0);
+    document.getElementById('kareTotal').textContent = '¥' + kareExp.toLocaleString();
+    document.getElementById('watashiTotal').textContent = '¥' + watashiExp.toLocaleString();
 
-    const diff = kareTotal - watashiTotal;
-    const settle = Math.abs(Math.round(diff / 2));
+    // 精算済み額（誰が誰に払ったか）
+    const karePaid = settlements.filter(r => r.tate === 'kare').reduce((s, r) => s + Number(r.amount), 0);
+    const watashiPaid = settlements.filter(r => r.tate === 'watashi').reduce((s, r) => s + Number(r.amount), 0);
+
+    // 残精算額 = 支出差額/2 − 既払い精算額（純差引）
+    // expDiff > 0 → 義也が多く払った → 志穂が義也に払う
+    const expDiff = kareExp - watashiExp;
+    const balance = Math.round(expDiff / 2 - (watashiPaid - karePaid));
     const settlementEl = document.getElementById('settlementText');
 
-    if (diff === 0) {
+    if (balance === 0) {
       settlementEl.className = 'settlement balanced';
-      settlementEl.innerHTML = '🎉 ぴったり！精算なし';
-    } else if (diff > 0) {
+      settlementEl.innerHTML = '🎉 精算済み！';
+    } else if (balance > 0) {
       settlementEl.className = 'settlement';
-      settlementEl.innerHTML = `志穂 → 義也<br><span class="amount">¥${settle.toLocaleString()}</span>`;
+      settlementEl.innerHTML = `志穂 → 義也<br><span class="amount">¥${balance.toLocaleString()}</span>`;
     } else {
       settlementEl.className = 'settlement';
-      settlementEl.innerHTML = `義也 → 志穂<br><span class="amount">¥${settle.toLocaleString()}</span>`;
+      settlementEl.innerHTML = `義也 → 志穂<br><span class="amount">¥${Math.abs(balance).toLocaleString()}</span>`;
     }
 
+    // 精算済み行
     const settledRow = document.getElementById('settledRow');
-    if (settlements.length > 0) {
-      const settledTotal = settlements.reduce((s, r) => s + Number(r.amount), 0);
-      document.getElementById('settledAmount').textContent = '¥' + settledTotal.toLocaleString();
+    const totalSettled = karePaid + watashiPaid;
+    if (totalSettled > 0) {
+      let label = '';
+      if (watashiPaid > 0 && karePaid === 0) label = `志穂→義也 ¥${watashiPaid.toLocaleString()}`;
+      else if (karePaid > 0 && watashiPaid === 0) label = `義也→志穂 ¥${karePaid.toLocaleString()}`;
+      else label = `¥${totalSettled.toLocaleString()}`;
+      document.getElementById('settledAmount').textContent = label;
       settledRow.style.display = 'flex';
     } else {
       settledRow.style.display = 'none';
