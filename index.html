@@ -953,19 +953,26 @@
 
   document.getElementById('confirmYes').addEventListener('click', async () => {
     if (!deleteTargetId) return;
+    const idToDelete = deleteTargetId;
     closeConfirm();
+    // Optimistically remove from UI immediately
+    allData = allData.filter(r => r.id !== idToDelete);
+    renderMonth();
+    showToast('削除しました');
     try {
-      const params = new URLSearchParams({ action: 'delete', id: deleteTargetId });
+      const params = new URLSearchParams({ action: 'delete', id: idToDelete });
       const res = await fetch(`${GAS_URL}?${params}`);
       const result = await res.json();
-      if (result.success) {
-        showToast('削除しました');
+      if (!result.success) {
+        showToast('削除に失敗しました（再読み込みします）');
         await loadData();
       } else {
-        showToast('削除に失敗しました');
+        // Sync after a short delay to let GAS commit
+        setTimeout(() => loadData(), 1500);
       }
     } catch (e) {
       showToast('削除に失敗しました: ' + e.message);
+      await loadData();
     }
   });
 
