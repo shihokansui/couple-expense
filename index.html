@@ -279,6 +279,19 @@
 
     .btn-delete:hover { background: #FFE0E6; color: var(--danger); }
 
+    .btn-edit {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      color: var(--text-light);
+      padding: 2px 4px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-edit:hover { background: var(--lavender-light); color: var(--lavender-dark); }
+
     .empty-state {
       text-align: center;
       padding: 40px 20px;
@@ -571,7 +584,7 @@
 <!-- 追加モーダル -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
-    <h2>✏️ 支出を追加</h2>
+    <h2 id="modalTitle">✏️ 支出を追加</h2>
 
     <div class="form-group">
       <label>内容</label>
@@ -595,6 +608,7 @@
         <option value="👗 ファッション">👗 ファッション</option>
         <option value="💊 医療">💊 医療</option>
         <option value="📦 その他">📦 その他</option>
+        <option value="💸 精算">💸 精算</option>
       </select>
     </div>
 
@@ -612,6 +626,7 @@
     </div>
 
     <button class="btn-submit" id="btnSubmit" onclick="submitExpense()">追加する</button>
+    <input type="hidden" id="editingId" value="">
     <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
   </div>
 </div>
@@ -637,6 +652,16 @@
   let selectedTate = '';
   let currentMonth = '';
   let deleteTargetId = '';
+
+  // 日付文字列を「YYYY-MM-DD」(JST) に正規化
+  function toJSTDateStr(val) {
+    const s = String(val).replace(/\//g, '-');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(val);
+    if (isNaN(d)) return s.substring(0, 10);
+    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return jst.toISOString().substring(0, 10);
+  }
 
   // 今月を初期値に
   function initMonth() {
@@ -675,11 +700,9 @@
       const rows = await res.json();
       // ヘッダー行や不正なデータを除外 + 月フォーマット正規化
       allData = rows.filter(r => r.id && !isNaN(Number(r.amount))).map(r => {
-        // month が "YYYY-MM" 形式でない場合 (例: "Fri May") → date から JST で算出
+        r.date = toJSTDateStr(r.date);
         if (!/^\d{4}-\d{2}$/.test(String(r.month))) {
-          const d = new Date(r.date);
-          const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-          r.month = jst.toISOString().substring(0, 7);
+          r.month = r.date.substring(0, 7);
         }
         return r;
       });
@@ -744,7 +767,10 @@
           </div>
           <div class="expense-right">
             <div class="expense-amount ${r.tate}">¥${Number(r.amount).toLocaleString()}</div>
-            <button class="btn-delete" onclick="askDelete('${escHtml(r.id)}', '${escHtml(String(r.content).replace(/'/g,'\\x27'))}')">🗑️</button>
+            <div style="display:flex;gap:2px;">
+              <button class="btn-edit" onclick="openEdit('${escHtml(r.id)}')">✏️</button>
+              <button class="btn-delete" onclick="askDelete('${escHtml(r.id)}', '${escHtml(String(r.content).replace(/'/g,'\\x27'))}')">🗑️</button>
+            </div>
           </div>
         </div>
       `;
@@ -761,6 +787,7 @@
     if (s.includes('家賃') || s.includes('光熱')) return '🏠';
     if (s.includes('ファッション')) return '👗';
     if (s.includes('医療')) return '💊';
+    if (s.includes('精算')) return '💸';
     return '📦';
   }
 
@@ -771,24 +798,47 @@
   // モーダル
   document.getElementById('openModal').addEventListener('click', openModal);
 
-  function openModal() {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
-    document.getElementById('inputDate').value = `${y}-${m}-${d}`;
-    document.getElementById('inputContent').value = '';
-    document.getElementById('inputAmount').value = '';
-    document.getElementById('inputCat').selectedIndex = 0;
-    selectedTate = '';
-    document.getElementById('btnKare').className = 'tate-btn';
-    document.getElementById('btnWatashi').className = 'tate-btn';
+  function openModal(item = null) {
+    document.getElementById('editingId').value = item ? item.id : '';
+    document.getElementById('modalTitle').textContent = item ? '✏️ 支出を編集' : '✏️ 支出を追加';
+    document.getElementById('btnSubmit').textContent = item ? '更新する' : '追加する';
+
+    if (item) {
+      document.getElementById('inputContent').value = item.content;
+      document.getElementById('inputAmount').value = item.amount;
+      document.getElementById('inputDate').value = item.date;
+      const catSelect = document.getElementById('inputCat');
+      for (let i = 0; i < catSelect.options.length; i++) {
+        if (catSelect.options[i].value === item.cat) { catSelect.selectedIndex = i; break; }
+      }
+      selectTate(item.tate);
+    } else {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      document.getElementById('inputDate').value = `${y}-${m}-${d}`;
+      document.getElementById('inputContent').value = '';
+      document.getElementById('inputAmount').value = '';
+      document.getElementById('inputCat').selectedIndex = 0;
+      selectedTate = '';
+      document.getElementById('btnKare').className = 'tate-btn';
+      document.getElementById('btnWatashi').className = 'tate-btn';
+    }
     document.getElementById('modalOverlay').classList.add('open');
     document.getElementById('inputContent').focus();
   }
 
+  function openEdit(id) {
+    const item = allData.find(r => r.id === id);
+    if (item) openModal(item);
+  }
+
   function closeModal() {
     document.getElementById('modalOverlay').classList.remove('open');
+    document.getElementById('editingId').value = '';
+    document.getElementById('btnSubmit').textContent = '追加する';
+    document.getElementById('modalTitle').textContent = '✏️ 支出を追加';
   }
 
   document.getElementById('modalOverlay').addEventListener('click', e => {
@@ -814,17 +864,22 @@
     if (!date) { showToast('日付を入力してください'); return; }
 
     const month = date.substring(0, 7);
+    const editingId = document.getElementById('editingId').value;
     const btn = document.getElementById('btnSubmit');
     btn.disabled = true;
     btn.textContent = '送信中…';
 
     try {
+      if (editingId) {
+        const delParams = new URLSearchParams({ action: 'delete', id: editingId });
+        await fetch(`${GAS_URL}?${delParams}`);
+      }
       const params = new URLSearchParams({ action: 'add', content, amount, cat, tate: selectedTate, date, month });
       const res = await fetch(`${GAS_URL}?${params}`);
       const result = await res.json();
       if (result.success) {
         closeModal();
-        showToast('追加しました ✓');
+        showToast(editingId ? '更新しました ✓' : '追加しました ✓');
         await loadData();
       } else {
         showToast('エラーが発生しました');
@@ -833,7 +888,7 @@
       showToast('エラーが発生しました: ' + e.message);
     } finally {
       btn.disabled = false;
-      btn.textContent = '追加する';
+      btn.textContent = editingId ? '更新する' : '追加する';
     }
   }
 
