@@ -157,6 +157,24 @@
     .stat-box.kare .val { color: var(--mint-dark); }
     .stat-box.watashi .val { color: var(--lavender-dark); }
 
+    .settled-row {
+      margin-top: 10px;
+      background: white;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-light);
+      box-shadow: 0 2px 6px rgba(168, 128, 208, 0.06);
+    }
+
+    .settled-row span:last-child {
+      font-weight: 700;
+      color: var(--mint-dark);
+    }
+
     /* 支出リスト */
     .section-header {
       display: flex;
@@ -565,6 +583,10 @@
         <div class="val" id="watashiTotal">¥0</div>
       </div>
     </div>
+    <div class="settled-row" id="settledRow" style="display:none;">
+      <span>💸 精算済み</span>
+      <span id="settledAmount"></span>
+    </div>
   </div>
 
   <!-- 支出リスト -->
@@ -722,8 +744,12 @@
   }
 
   function renderSummary(items) {
-    const kareTotal = items.filter(r => r.tate === 'kare').reduce((s, r) => s + Number(r.amount), 0);
-    const watashiTotal = items.filter(r => r.tate === 'watashi').reduce((s, r) => s + Number(r.amount), 0);
+    const isSettlement = r => String(r.cat).includes('精算');
+    const expenses = items.filter(r => !isSettlement(r));
+    const settlements = items.filter(r => isSettlement(r));
+
+    const kareTotal = expenses.filter(r => r.tate === 'kare').reduce((s, r) => s + Number(r.amount), 0);
+    const watashiTotal = expenses.filter(r => r.tate === 'watashi').reduce((s, r) => s + Number(r.amount), 0);
     document.getElementById('kareTotal').textContent = '¥' + kareTotal.toLocaleString();
     document.getElementById('watashiTotal').textContent = '¥' + watashiTotal.toLocaleString();
 
@@ -740,6 +766,15 @@
     } else {
       settlementEl.className = 'settlement';
       settlementEl.innerHTML = `義也 → 志穂<br><span class="amount">¥${settle.toLocaleString()}</span>`;
+    }
+
+    const settledRow = document.getElementById('settledRow');
+    if (settlements.length > 0) {
+      const settledTotal = settlements.reduce((s, r) => s + Number(r.amount), 0);
+      document.getElementById('settledAmount').textContent = '¥' + settledTotal.toLocaleString();
+      settledRow.style.display = 'flex';
+    } else {
+      settledRow.style.display = 'none';
     }
   }
 
